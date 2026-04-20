@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Seasonality RSI Divergence</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--bg:#08111f;--panel:#0f1b2e;--panel2:#12233c;--text:#eaf2ff;--muted:#9fb1cc;--border:#243650;--green:#2cc58a;--red:#ff6b6b;--yellow:#f3c969}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(180deg,#07101b,#0b1830);color:var(--text)}
+.wrap{max-width:1320px;margin:0 auto;padding:24px}.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:20px;align-items:end;margin-bottom:20px}.badge{display:inline-block;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#cfe0ff;font-size:12px;margin-bottom:12px}h1{margin:0;font-size:34px}.sub{margin-top:12px;color:var(--muted);line-height:1.55}.grid{display:grid;grid-template-columns:380px 1fr;gap:18px}.panel{background:rgba(15,27,46,.92);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.22)}
+.stack{display:grid;gap:12px}label{display:block;font-size:13px;color:#cfe0ff;margin-bottom:5px}input,select,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);font-size:14px}input,select{background:#0a1527;color:var(--text)}button{border:none;background:linear-gradient(180deg,#2d7df6,#1f61c5);color:#fff;font-weight:700;cursor:pointer}.secondary{background:#152842;border:1px solid var(--border)}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.metric{padding:14px;background:var(--panel2);border:1px solid var(--border);border-radius:16px}.k{font-size:12px;color:var(--muted);margin-bottom:6px}.v{font-size:24px;font-weight:800}.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{padding:14px;background:var(--panel2);border:1px solid var(--border);border-radius:16px}.sectionTitle{font-size:18px;font-weight:800;margin:0 0 12px}.muted{color:var(--muted)}.pill{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}.buy{background:rgba(44,197,138,.14);color:#92f0c9}.sell{background:rgba(255,107,107,.14);color:#ffb0b0}.hold{background:rgba(243,201,105,.14);color:#ffe8a2}.tableWrap{overflow:auto;max-height:360px;border:1px solid var(--border);border-radius:16px}.tableWrap table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{color:#cfe0ff;background:#102039;position:sticky;top:0}canvas{background:#0a1527;border:1px solid var(--border);border-radius:16px;padding:10px}.footerNote{font-size:12px;color:var(--muted);line-height:1.5}.ok{color:var(--green)}.warn{color:var(--yellow)}
+@media (max-width:980px){.hero,.grid,.row,.cards{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <div class="badge">SEASONALITY RSI DIVERGENCE · ЗАГРУЗКА ДАННЫХ</div>
+      <h1>Сайт для выбора между двумя активами</h1>
+      <div class="sub">Загрузи Excel или JSON, выбери лист <b>Данные</b> или любой другой, укажи колонку даты и два актива. Алгоритм считает <b>Seasonality RSI Divergence</b> и показывает рекомендацию, график и детали сигнала.</div>
+    </div>
+    <div class="panel">
+      <div class="k">Итоговая рекомендация</div>
+      <div class="v" id="heroRec">—</div>
+      <div class="muted" id="heroComment">Загрузите файл и нажмите «Рассчитать».</div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="panel stack">
+      <div>
+        <label>Файл данных</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.json" />
+      </div>
+      <div class="row">
+        <div>
+          <label>Лист</label>
+          <select id="sheetSelect"></select>
+        </div>
+        <div>
+          <label>Колонка даты</label>
+          <select id="dateCol"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Актив 1</label>
+          <select id="asset1"></select>
+        </div>
+        <div>
+          <label>Актив 2</label>
+          <select id="asset2"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Лист по умолчанию</label>
+          <input id="preferredSheet" value="Данные" />
+        </div>
+        <div>
+          <label>Период RSI</label>
+          <input id="rsiPeriod" type="number" min="5" max="30" value="14" />
+        </div>
+      </div>
+      <div class="row">
+        <div><button id="analyzeBtn">Рассчитать</button></div>
+        <div><button class="secondary" id="useDemoBtn">Загрузить demo JSON</button></div>
+      </div>
+      <div class="footerNote">Ожидаемый формат Excel: колонка с датой + две числовые колонки активов. Для JSON подойдут массивы объектов c полями даты и двух активов, например <code>[{date, asset1, asset2}]</code>.</div>
+      <div class="muted" id="loadStatus">Файл не загружен.</div>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <div class="stats">
+          <div class="metric"><div class="k">Рекомендация</div><div class="v" id="finalRecommendation">—</div></div>
+          <div class="metric"><div class="k">Seasonality base</div><div class="v" id="seasonBase">—</div></div>
+          <div class="metric"><div class="k">RSI A1</div><div class="v" id="rsiValue">—</div></div>
+          <div class="metric"><div class="k">RS trend</div><div class="v" id="rsTrend">—</div></div>
+        </div>
+        <div class="cards">
+          <div class="card"><div class="sectionTitle">Объяснение</div><div id="explanation"></div></div>
+          <div class="card"><div class="sectionTitle">Статус сигнала</div><div id="statusBox"></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="sectionTitle">Нормализованный график цен</div>
+        <canvas id="priceChart" height="120"></canvas>
+      </div>
+      <div class="panel">
+        <div class="sectionTitle">Relative Strength и RSI</div>
+        <canvas id="rsChart" height="120"></canvas>
+      </div>
+      <div class="panel">
+        <div class="sectionTitle">Детали расчёта</div>
+        <div id="details"></div>
+      </div>
+      <div class="panel">
+        <div class="sectionTitle">Месячные точки</div>
+        <div id="monthlyTable"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+let workbook=null, currentRows=[], rawJsonRows=[], priceChart=null, rsChart=null;
+const els={fileInput:document.getElementById('fileInput'),sheetSelect:document.getElementById('sheetSelect'),dateCol:document.getElementById('dateCol'),asset1:document.getElementById('asset1'),asset2:document.getElementById('asset2'),preferredSheet:document.getElementById('preferredSheet'),rsiPeriod:document.getElementById('rsiPeriod'),loadStatus:document.getElementById('loadStatus')};
+els.fileInput.addEventListener('change',handleFile);
+document.getElementById('analyzeBtn').addEventListener('click',analyze);
+document.getElementById('useDemoBtn').addEventListener('click',loadDemo);
+els.sheetSelect.addEventListener('change',loadSheet);
+async function handleFile(e){const file=e.target.files[0]; if(!file) return; const name=file.name.toLowerCase(); if(name.endsWith('.json')){const text=await file.text(); const data=JSON.parse(text); loadJsonRows(data, file.name);} else {const buf=await file.arrayBuffer(); workbook=XLSX.read(buf,{type:'array',cellDates:true}); initWorkbook(file.name);} }
+function loadJsonRows(data, name='JSON'){ if(!Array.isArray(data)||!data.length) throw new Error('JSON пустой или имеет неверный формат.'); rawJsonRows=data; workbook=null; currentRows=data; const headers=Object.keys(data[0]); fillSelectors(headers); els.loadStatus.textContent=`Загружен ${name}: ${data.length} строк.`; }
+function initWorkbook(name='Excel'){ if(!workbook) return; els.sheetSelect.innerHTML=workbook.SheetNames.map(n=>`<option>${escapeHtml(n)}</option>`).join(''); const preferred=workbook.SheetNames.find(n=>n===els.preferredSheet.value)||workbook.SheetNames[0]; els.sheetSelect.value=preferred; loadSheet(); els.loadStatus.textContent=`Загружен ${name}: ${workbook.SheetNames.length} лист(ов).`; }
+function loadSheet(){ if(workbook){ const sheet=workbook.Sheets[els.sheetSelect.value]; currentRows=XLSX.utils.sheet_to_json(sheet,{defval:null,raw:false}); } if(!currentRows.length) return; fillSelectors(Object.keys(currentRows[0])); }
+function fillSelectors(headers){ const dateOptions=headers.map(h=>`<option ${/date|дата/i.test(h)?'selected':''}>${escapeHtml(h)}</option>`).join(''); const opts=headers.map(h=>`<option>${escapeHtml(h)}</option>`).join(''); els.dateCol.innerHTML=dateOptions; els.asset1.innerHTML=opts; els.asset2.innerHTML=opts; const nonDate=headers.filter(h=>h!==els.dateCol.value); if(nonDate[0]) els.asset1.value=nonDate[0]; if(nonDate[1]) els.asset2.value=nonDate[1]; }
+async function loadDemo(){ const demo=[{date:'2024-01-31',asset1:100,asset2:100},{date:'2024-02-29',asset1:98,asset2:101},{date:'2024-03-31',asset1:95,asset2:102},{date:'2024-04-30',asset1:97,asset2:101},{date:'2024-05-31',asset1:101,asset2:100},{date:'2024-06-30',asset1:104,asset2:99},{date:'2024-07-31',asset1:106,asset2:98},{date:'2024-08-31',asset1:103,asset2:100},{date:'2024-09-30',asset1:107,asset2:99},{date:'2024-10-31',asset1:110,asset2:98},{date:'2024-11-30',asset1:112,asset2:97},{date:'2024-12-31',asset1:111,asset2:99},{date:'2025-01-31',asset1:109,asset2:101},{date:'2025-02-28',asset1:106,asset2:103},{date:'2025-03-31',asset1:104,asset2:105},{date:'2025-04-30',asset1:108,asset2:103},{date:'2025-05-31',asset1:113,asset2:102},{date:'2025-06-30',asset1:116,asset2:101},{date:'2025-07-31',asset1:118,asset2:100},{date:'2025-08-31',asset1:115,asset2:102},{date:'2025-09-30',asset1:120,asset2:101},{date:'2025-10-31',asset1:123,asset2:100},{date:'2025-11-30',asset1:126,asset2:99},{date:'2025-12-31',asset1:124,asset2:100},{date:'2026-01-31',asset1:121,asset2:102},{date:'2026-02-28',asset1:119,asset2:104},{date:'2026-03-31',asset1:117,asset2:105},{date:'2026-04-30',asset1:122,asset2:103}]; loadJsonRows(demo,'demo JSON'); }
+function analyze(){ try{const prepared=prepareSeries(); const result=analyzeSRD(prepared, els.asset1.value, els.asset2.value, parseInt(els.rsiPeriod.value||'14',10)); render(prepared,result,els.asset1.value,els.asset2.value);}catch(err){alert(err.message||String(err)); console.error(err);} }
+function prepareSeries(){ const dcol=els.dateCol.value, a1=els.asset1.value, a2=els.asset2.value; if(!dcol||!a1||!a2) throw new Error('Выберите дату и оба актива.'); const rows=[]; for(const row of currentRows){ const d=parseDate(row[dcol] ?? row.date ?? row.Date); const v1=toNumber(row[a1]); const v2=toNumber(row[a2]); if(d && isFinite(v1) && isFinite(v2) && v1>0 && v2>0) rows.push({d,p1:v1,p2:v2}); } rows.sort((x,y)=>x.d-y.d); if(rows.length<12) throw new Error('Нужно минимум 12 валидных строк данных.'); return {dates:rows.map(r=>r.d),prices1:rows.map(r=>r.p1),prices2:rows.map(r=>r.p2)}; }
+function getMonthEndSeries(prepared){ const dates=[], prices1=[], prices2=[]; for(let i=0;i<prepared.dates.length;i++){ const isLast=i===prepared.dates.length-1 || formatMonth(prepared.dates[i+1])!==formatMonth(prepared.dates[i]); if(isLast){ dates.push(prepared.dates[i]); prices1.push(prepared.prices1[i]); prices2.push(prepared.prices2[i]); } } return {dates,prices1,prices2}; }
+function analyzeSRD(prepared, asset1, asset2, rsiPeriod){ const ms=getMonthEndSeries(prepared); const n=ms.dates.length; if(n<8) throw new Error('Недостаточно месячных точек.'); const nextMonth=((ms.dates[n-1].getMonth()+1)%12)+1; const seasonBase=[1,4,5,6,7,9,10,11].includes(nextMonth)?asset1:asset2; const rs=ms.prices1.map((v,i)=>v/ms.prices2[i]); const rsi=calcRSI(ms.prices1, Math.max(0,n-rsiPeriod-1), n-1, Math.min(rsiPeriod,n-1)); const recentLow=Math.min(...ms.prices1.slice(Math.max(0,n-3),n)); const prevLow=Math.min(...ms.prices1.slice(Math.max(0,n-6),Math.max(1,n-3))); const recentHigh=Math.max(...ms.prices1.slice(Math.max(0,n-3),n)); const prevHigh=Math.max(...ms.prices1.slice(Math.max(0,n-6),Math.max(1,n-3))); const recentRsi=calcRSI(ms.prices1, Math.max(0,n-5), n-1, Math.min(4,n-1)); const prevRsi=calcRSI(ms.prices1, Math.max(0,n-7), Math.max(1,n-3), Math.min(4,Math.max(1,n-3))); const bullDiv=recentLow<=prevLow && recentRsi>prevRsi; const bearDiv=recentHigh>=prevHigh && recentRsi<prevRsi; const rsMom3=n>=4?safeGrowth(rs[n-4],rs[n-1]):0; const rsMa3=avg(rs.slice(Math.max(0,n-3))), rsMa6=avg(rs.slice(Math.max(0,n-6))); const rsTrend=rsMa3>rsMa6?'Bullish':rsMa3<rsMa6?'Bearish':'Neutral'; let recommendation='Без предпочтения'; let comment='Сигнал не подтверждён.'; if(bullDiv && rsi<35){ if(seasonBase===asset1 || rsTrend==='Bullish' || rsMom3>-0.01){ recommendation=asset1; comment='Bullish divergence + низкий RSI + подтверждение seasonality/RS.'; } } if(bearDiv && rsi>65){ if(seasonBase===asset2 || rsTrend==='Bearish' || rsMom3<0.01){ recommendation=asset2; comment='Bearish divergence + высокий RSI + подтверждение seasonality/RS.'; } } if(recommendation==='Без предпочтения'){ if(seasonBase===asset1 && rsTrend==='Bullish' && rsMom3>0){ recommendation=asset1; comment='Сезонный bias в пользу Актив 1 подтверждён RS.'; } else if(seasonBase===asset2 && rsTrend==='Bearish' && rsMom3<0){ recommendation=asset2; comment='Сезонный bias в пользу Актив 2 подтверждён RS.'; } }
+ return {algorithm:'Seasonality RSI Divergence', recommendation, comment, seasonBase, nextMonth, rsi, bullDiv, bearDiv, recentRsi, prevRsi, rsMom3, rsMa3, rsMa6, rsTrend, monthly:ms, rs}; }
+function render(prepared, result, asset1, asset2){ document.getElementById('heroRec').innerHTML=colorRec(result.recommendation, asset1, asset2); document.getElementById('heroComment').textContent=result.comment; document.getElementById('finalRecommendation').innerHTML=colorRec(result.recommendation, asset1, asset2); document.getElementById('seasonBase').textContent=result.seasonBase; document.getElementById('rsiValue').textContent=isFinite(result.rsi)?result.rsi.toFixed(2):'—'; document.getElementById('rsTrend').textContent=result.rsTrend; document.getElementById('explanation').innerHTML=`<b>${result.algorithm}</b><br>${escapeHtml(result.comment)}`; document.getElementById('statusBox').innerHTML=`<div>Следующий месяц: <b>${monthName(result.nextMonth)}</b></div><div>Bull div: <b>${result.bullDiv?'Да':'Нет'}</b></div><div>Bear div: <b>${result.bearDiv?'Да':'Нет'}</b></div><div>RS Mom 3m: <b>${pct(result.rsMom3)}</b></div>`; document.getElementById('details').innerHTML=`<div class="tableWrap"><table><thead><tr><th>Метрика</th><th>Значение</th></tr></thead><tbody><tr><td>Seasonality base</td><td>${escapeHtml(result.seasonBase)}</td></tr><tr><td>RSI A1</td><td>${num(result.rsi)}</td></tr><tr><td>Recent RSI / Prev RSI</td><td>${num(result.recentRsi)} / ${num(result.prevRsi)}</td></tr><tr><td>Bullish divergence</td><td>${result.bullDiv?'Да':'Нет'}</td></tr><tr><td>Bearish divergence</td><td>${result.bearDiv?'Да':'Нет'}</td></tr><tr><td>RS Mom 3m</td><td>${pct(result.rsMom3)}</td></tr><tr><td>RS MA3 / MA6</td><td>${num(result.rsMa3)} / ${num(result.rsMa6)}</td></tr><tr><td>RS Trend</td><td>${escapeHtml(result.rsTrend)}</td></tr><tr><td>Recommendation</td><td>${escapeHtml(result.recommendation)}</td></tr></tbody></table></div>`; document.getElementById('monthlyTable').innerHTML=buildMonthlyTable(result.monthly, result.rs, asset1, asset2); renderCharts(prepared, result, asset1, asset2); }
+function buildMonthlyTable(ms, rs, asset1, asset2){ const rows=ms.dates.map((d,i)=>`<tr><td>${fmtDate(d)}</td><td>${num(ms.prices1[i])}</td><td>${num(ms.prices2[i])}</td><td>${num(rs[i])}</td></tr>`).join(''); return `<div class="tableWrap"><table><thead><tr><th>Дата</th><th>${escapeHtml(asset1)}</th><th>${escapeHtml(asset2)}</th><th>RS</th></tr></thead><tbody>${rows}</tbody></table></div>`; }
+function renderCharts(prepared, result, asset1, asset2){ const labels=prepared.dates.map(fmtDate); const n1=prepared.prices1.map(v=>v/prepared.prices1[0]*100), n2=prepared.prices2.map(v=>v/prepared.prices2[0]*100); if(priceChart) priceChart.destroy(); priceChart=new Chart(document.getElementById('priceChart'),{type:'line',data:{labels,datasets:[{label:asset1,data:n1,borderWidth:2,tension:.15},{label:asset2,data:n2,borderWidth:2,tension:.15}]},options:chartOptions()}); const mLabels=result.monthly.dates.map(fmtDate); const rsiSeries=result.monthly.prices1.map((_,i)=> calcRSI(result.monthly.prices1, Math.max(0,i-14), i, Math.min(14,i||1))); if(rsChart) rsChart.destroy(); rsChart=new Chart(document.getElementById('rsChart'),{type:'line',data:{labels:mLabels,datasets:[{label:'RS',data:result.rs,borderWidth:2,tension:.15,yAxisID:'y'},{label:'RSI A1',data:rsiSeries,borderWidth:2,tension:.15,yAxisID:'y1'}]},options:{responsive:true,plugins:{legend:{labels:{color:'#dbe7ff'}}},scales:{x:{ticks:{color:'#9fb1cc',maxTicksLimit:10},grid:{color:'#1f314f'}},y:{ticks:{color:'#9fb1cc'},grid:{color:'#1f314f'}},y1:{position:'right',ticks:{color:'#9fb1cc'},grid:{display:false},min:0,max:100}}}}); }
+function chartOptions(){ return {responsive:true,plugins:{legend:{labels:{color:'#dbe7ff'}}},scales:{x:{ticks:{color:'#9fb1cc',maxTicksLimit:10},grid:{color:'#1f314f'}},y:{ticks:{color:'#9fb1cc'},grid:{color:'#1f314f'}}}}; }
+function calcRSI(arr,start,end,period){ if(end-start+1<2) return 50; let gains=0,losses=0,count=0; const s=Math.max(1,end-period+1); for(let i=s;i<=end;i++){ const diff=arr[i]-arr[i-1]; if(diff>0) gains+=diff; else losses-=diff; count++; } if(count===0) return 50; const avgGain=gains/count, avgLoss=losses/count; if(avgLoss===0) return 100; const rs=avgGain/avgLoss; return 100-(100/(1+rs)); }
+function safeGrowth(a,b){ return (!isFinite(a)||!isFinite(b)||a===0)?0:(b-a)/a; }
+function avg(arr){ return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0; }
+function parseDate(v){ if(v==null||v==='') return null; if(v instanceof Date && !isNaN(v)) return v; if(typeof v==='number'){ const p=XLSX.SSF.parse_date_code(v); return p?new Date(p.y,p.m-1,p.d):null; } const d=new Date(v); if(!isNaN(d)) return d; const m=String(v).match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/); if(m){const y=m[3].length===2?2000+Number(m[3]):Number(m[3]); return new Date(y,Number(m[2])-1,Number(m[1]));} return null; }
+function toNumber(v){ if(v==null||v==='') return NaN; if(typeof v==='number') return v; const n=Number(String(v).replace(/\s/g,'').replace(',','.')); return Number.isFinite(n)?n:NaN; }
+function fmtDate(d){ return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; }
+function formatMonth(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthName(m){ return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]; }
+function pct(v){ return isFinite(v)?(v*100).toFixed(2)+'%':'—'; }
+function num(v){ return isFinite(v)?Number(v).toFixed(4):'—'; }
+function colorRec(rec,a1,a2){ let cls='hold'; if(rec===a1) cls='buy'; if(rec===a2) cls='sell'; return `<span class="pill ${cls}">${escapeHtml(rec)}</span>`; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+</script>
+</body>
+</html>
