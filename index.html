@@ -1,13 +1,820 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RS Matrix Nasdaq Style</title>
-    <meta name="description" content="Оценочная матрица активов в стиле Nasdaq с загрузкой Excel" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RS Matrix NDW</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: #1f2937;
+      --panel-2: #273244;
+      --line: #374151;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --green-1: #0f7a47;
+      --green-2: #38a169;
+      --red-1: #c84646;
+      --red-2: #8b0000;
+      --diag: #eef2f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+    .wrap {
+      width: min(1600px, calc(100vw - 24px));
+      margin: 12px auto 24px;
+    }
+    .topbar {
+      background: #101826;
+      border: 1px solid #1f2a3a;
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.22);
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0,1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .field {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 80px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .field input, .field select, .field textarea, .btn {
+      width: 100%;
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid #445168;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    .field textarea { min-height: 46px; resize: vertical; }
+    .btn {
+      cursor: pointer;
+      transition: .15s ease;
+      font-weight: 700;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+      border-color: #1f8b4d;
+      color: white;
+    }
+    .btn-secondary {
+      background: linear-gradient(180deg, #334155 0%, #1f2937 100%);
+      color: white;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .card .v { font-size: 24px; font-weight: 700; margin-top: 6px; }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin: 6px 0 0;
+    }
+    .table-wrap {
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: auto;
+      border: 1px solid #ced4df;
+      box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    }
+    table { border-collapse: collapse; width: max-content; min-width: 100%; }
+    th, td {
+      border: 1px solid #d5dae3;
+      padding: 4px 6px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #2f3742;
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+    }
+    tbody th.sticky-left, tbody td.sticky-left, thead th.sticky-left {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #fff;
+    }
+    thead th.sticky-left { background: #2f3742; }
+    tbody td.sticky-left-2, thead th.sticky-left-2 {
+      position: sticky;
+      left: 52px;
+      z-index: 2;
+      background: #fff;
+    }
+    tbody td.sticky-left-3, thead th.sticky-left-3 {
+      position: sticky;
+      left: 134px;
+      z-index: 2;
+      background: #fff;
+    }
+    tbody td.sticky-left-4, thead th.sticky-left-4 {
+      position: sticky;
+      left: 414px;
+      z-index: 2;
+      background: #fff;
+    }
+    tbody td.sticky-left-5, thead th.sticky-left-5 {
+      position: sticky;
+      left: 478px;
+      z-index: 2;
+      background: #fff;
+    }
+    tbody td.sticky-left-6, thead th.sticky-left-6 {
+      position: sticky;
+      left: 542px;
+      z-index: 2;
+      background: #fff;
+    }
+    tbody td.sticky-left-7, thead th.sticky-left-7 {
+      position: sticky;
+      left: 606px;
+      z-index: 2;
+      background: #fff;
+    }
+    .col-rank { min-width: 52px; width: 52px; text-align:center; }
+    .col-ticker { min-width: 82px; width: 82px; }
+    .col-name { min-width: 280px; width: 280px; }
+    .col-mini { min-width: 64px; width: 64px; text-align:center; }
+    .col-tech { min-width: 84px; width: 84px; text-align:center; }
+    .col-matrix { min-width: 34px; width: 34px; text-align:center; font-weight:700; }
+    .diag { background: var(--diag) !important; color:#6b7280; font-weight:400; }
+    .bx { background: var(--green-1) !important; color: white; }
+    .bo { background: var(--green-2) !important; color: white; }
+    .so { background: var(--red-1) !important; color: white; }
+    .sx { background: var(--red-2) !important; color: white; }
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 10px;
+      line-height: 1.45;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #d1d5db;
+    }
+    .ok { color: #86efac; }
+    .warn { color: #fde68a; }
+    .err { color: #fca5a5; }
+    @media (max-width: 1200px) {
+      .controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1 class="title">RS Matrix NDW / Nasdaq Style</h1>
+      <p class="subtitle">Загрузка Excel → weekly Friday closes → P&F relative strength matrix → ранжирование от слабых к сильным.</p>
+
+      <div class="controls">
+        <div class="field">
+          <label>Excel файл</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.csv" />
+        </div>
+        <div class="field">
+          <label>Дата расчёта</label>
+          <input id="asOfDate" type="date" />
+        </div>
+        <div class="field">
+          <label>Box %</label>
+          <input id="boxPct" type="number" step="0.0001" min="0.001" value="0.0325" />
+        </div>
+        <div class="field">
+          <label>Reversal</label>
+          <input id="reversal" type="number" step="1" min="1" value="3" />
+        </div>
+        <div class="field">
+          <label>Weeks lookback (0 = все)</label>
+          <input id="weeksLookback" type="number" step="1" min="0" value="520" />
+        </div>
+        <div class="field">
+          <label>Лист данных</label>
+          <input id="sheetName" type="text" placeholder="Автоопределение: Ark1 / Данные / первый лист" />
+        </div>
+        <div class="field">
+          <label>Колонка A</label>
+          <input type="text" value="DateTime" disabled />
+        </div>
+        <div class="field">
+          <label>Активы</label>
+          <textarea id="tickersArea" placeholder="Здесь автоматически появятся тикеры из файла"></textarea>
+        </div>
+        <div class="field">
+          <label>Анализ</label>
+          <button id="runBtn" class="btn btn-primary">Построить матрицу</button>
+        </div>
+        <div class="field">
+          <label>Экспорт CSV</label>
+          <button id="csvBtn" class="btn btn-secondary">Скачать CSV</button>
+        </div>
+        <div class="field">
+          <label>Демо</label>
+          <button id="demoBtn" class="btn btn-secondary">Загрузить demo данные</button>
+        </div>
+        <div class="field">
+          <label>Инструкция</label>
+          <button id="templateBtn" class="btn btn-secondary">Скачать шаблон CSV</button>
+        </div>
+      </div>
+
+      <div id="status" class="status">Файл пока не загружен.</div>
+    </div>
+
+    <div class="stats">
+      <div class="card"><div class="k">Активов</div><div id="statAssets" class="v">0</div></div>
+      <div class="card"><div class="k">Недель</div><div id="statWeeks" class="v">0</div></div>
+      <div class="card"><div class="k">Дата weekly close</div><div id="statDate" class="v">—</div></div>
+      <div class="card"><div class="k">Сильнейший актив</div><div id="statStrong" class="v">—</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="matrixTable"></table>
+    </div>
+
+    <div class="footer-note">
+      Формат файла: в первой строке заголовки, в колонке A — дата/время, в колонках B.. — цены активов. Можно загружать .xlsx, .xls и .csv. Логика расчёта: week-ending Friday, P&amp;F RS codes BX / BO / SO / SX, зеркальная обратная пара, ranking weak → strong.
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      workbook: null,
+      activeSheetName: null,
+      rawRows: [],
+      headers: [],
+      weeklyDates: [],
+      weeklyPx2D: [],
+      sortedNames: [],
+      sortedCodes: [],
+      resultRows: [],
+      matrixCsv: ''
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $('status');
+
+    function setStatus(text, cls = '') {
+      statusEl.className = `status ${cls}`.trim();
+      statusEl.textContent = text;
+    }
+
+    function weekEndingFriday(date) {
+      const d = new Date(date);
+      if (Number.isNaN(d.getTime())) return null;
+      const day = (d.getDay() + 6) % 7 + 1; // Mon=1..Sun=7
+      const diff = 5 - day;
+      d.setDate(d.getDate() + diff);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+
+    function parseExcelDate(value) {
+      if (value instanceof Date && !Number.isNaN(value)) return new Date(value);
+      if (typeof value === 'number') {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed) return new Date(parsed.y, parsed.m - 1, parsed.d, parsed.H || 0, parsed.M || 0, parsed.S || 0);
+      }
+      if (typeof value === 'string') {
+        const s = value.trim();
+        if (!s) return null;
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+          const d = new Date(s.slice(0,10) + 'T00:00:00');
+          if (!Number.isNaN(d)) return d;
+        }
+        if (/^\d{2}\.\d{2}\.\d{4}/.test(s)) {
+          const [dd, mm, yyyy] = s.slice(0,10).split('.').map(Number);
+          const d = new Date(yyyy, mm - 1, dd);
+          if (!Number.isNaN(d)) return d;
+        }
+        const d = new Date(s);
+        if (!Number.isNaN(d)) return d;
+      }
+      return null;
+    }
+
+    function toNumber(v) {
+      if (v === null || v === undefined || v === '') return 0;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const s = String(v).replace(/\s+/g, '').replace(',', '.');
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function looksLikeTicker(s) {
+      if (!s) return false;
+      const t = String(s).trim();
+      return t.length > 0 && t.length <= 12 && /^[A-Za-z0-9.\-]+$/.test(t);
+    }
+
+    function parseTickerName(header) {
+      const s = String(header || '').trim();
+      if (!s) return { ticker: '', name: '' };
+      if (s.includes(' - ')) {
+        const [ticker, ...rest] = s.split(' - ');
+        return { ticker: ticker.trim(), name: rest.join(' - ').trim() || ticker.trim() };
+      }
+      if (s.includes(' — ')) {
+        const [ticker, ...rest] = s.split(' — ');
+        return { ticker: ticker.trim(), name: rest.join(' — ').trim() || ticker.trim() };
+      }
+      const first = s.split(/\s+/)[0];
+      if (looksLikeTicker(first)) {
+        const name = s.slice(first.length).trim() || first;
+        return { ticker: first, name };
+      }
+      return { ticker: s, name: s };
+    }
+
+    function codePoints(code) {
+      switch ((code || '').toUpperCase()) {
+        case 'BX': return 1;
+        case 'BO': return 0.5;
+        case 'SO': return -0.5;
+        case 'SX': return -1;
+        default: return 0;
+      }
+    }
+
+    function invertCode(code) {
+      switch ((code || '').toUpperCase()) {
+        case 'BX': return 'SO';
+        case 'SO': return 'BX';
+        case 'BO': return 'SX';
+        case 'SX': return 'BO';
+        default: return '--';
+      }
+    }
+
+    function isValidCode(code) {
+      return ['BO','BX','SO','SX'].includes((code || '').toUpperCase());
+    }
+
+    function normalizePairConsistency(codes) {
+      const n = codes.length;
+      for (let i = 0; i < n; i++) codes[i][i] = '—';
+      for (let i = 0; i < n - 1; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const a = String(codes[i][j] || '').toUpperCase().trim();
+          const b = String(codes[j][i] || '').toUpperCase().trim();
+          if (isValidCode(a)) codes[j][i] = invertCode(a);
+          else if (isValidCode(b)) codes[i][j] = invertCode(b);
+        }
+      }
+    }
+
+    function boxIdxFloor(v, stepLn) {
+      if (v <= 0 || stepLn <= 0) return 0;
+      return Math.floor(Math.log(v) / stepLn);
+    }
+
+    function boxIdxCeil(v, stepLn) {
+      if (v <= 0 || stepLn <= 0) return 0;
+      const x = Math.log(v) / stepLn;
+      return Number.isInteger(x) ? x : Math.floor(x) + 1;
+    }
+
+    function safeRS(weeklyPx2D, a, b, w) {
+      const pA = weeklyPx2D[a][w];
+      const pB = weeklyPx2D[b][w];
+      if (pA <= 0 || pB <= 0) return 0;
+      return pA / pB;
+    }
+
+    function rsPnfCode(weeklyPx2D, w1, w2, a, b, boxPct, reversal) {
+      try {
+        if ((w2 - w1) < 12) return '--';
+        const stepLn = Math.log(1 + boxPct);
+        if (!(stepLn > 0)) return '--';
+
+        let firstW = -1;
+        let rs = 0;
+        for (let w = w1; w <= w2; w++) {
+          rs = safeRS(weeklyPx2D, a, b, w);
+          if (rs > 0) { firstW = w; break; }
+        }
+        if (firstW === -1 || (w2 - firstW) < 12) return '--';
+
+        const b0 = boxIdxFloor(rs, stepLn);
+        const colType = [];
+        const colHigh = [];
+        const colLow = [];
+
+        let curType = 0;
+        let curHigh = b0;
+        let curLow = b0;
+
+        for (let w = firstW + 1; w <= w2; w++) {
+          rs = safeRS(weeklyPx2D, a, b, w);
+          if (rs <= 0) continue;
+
+          const biUp = boxIdxFloor(rs, stepLn);
+          const biDown = boxIdxCeil(rs, stepLn);
+
+          if (curType === 0) {
+            if (biUp >= b0 + 1) {
+              curType = 1;
+              curHigh = biUp;
+              curLow = b0;
+              colType.push(1); colHigh.push(curHigh); colLow.push(curLow);
+            } else if (biDown <= b0 - 1) {
+              curType = -1;
+              curLow = biDown;
+              curHigh = b0;
+              colType.push(-1); colHigh.push(curHigh); colLow.push(curLow);
+            }
+          } else if (curType === 1) {
+            if (biUp > curHigh) {
+              curHigh = biUp;
+              colHigh[colHigh.length - 1] = curHigh;
+            } else if (biDown <= curHigh - reversal) {
+              curType = -1;
+              curLow = biDown;
+              colType.push(-1); colHigh.push(curHigh - 1); colLow.push(curLow);
+            }
+          } else if (curType === -1) {
+            if (biDown < curLow) {
+              curLow = biDown;
+              colLow[colLow.length - 1] = curLow;
+            } else if (biUp >= curLow + reversal) {
+              curType = 1;
+              curHigh = biUp;
+              colType.push(1); colHigh.push(curHigh); colLow.push(curLow + 1);
+            }
+          }
+        }
+
+        if (!colType.length) return '--';
+
+        let lastSignal = 'S';
+        let hasPrevX = false, hasPrevO = false;
+        let prevXHigh = 0, prevOLow = 0;
+
+        for (let c = 0; c < colType.length; c++) {
+          if (colType[c] === 1) {
+            if (!hasPrevX) {
+              hasPrevX = true; prevXHigh = colHigh[c];
+            } else {
+              if (colHigh[c] > prevXHigh) lastSignal = 'B';
+              prevXHigh = colHigh[c];
+            }
+          } else if (colType[c] === -1) {
+            if (!hasPrevO) {
+              hasPrevO = true; prevOLow = colLow[c];
+            } else {
+              if (colLow[c] < prevOLow) lastSignal = 'S';
+              prevOLow = colLow[c];
+            }
+          }
+        }
+
+        return `${lastSignal}${colType[colType.length - 1] === 1 ? 'X' : 'O'}`;
+      } catch (e) {
+        return '--';
+      }
+    }
+
+    function buildWeeklyCloses(rawRows, headers, endDate = null) {
+      const endTs = endDate ? new Date(endDate).setHours(23,59,59,999) : Infinity;
+      const map = new Map();
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        const d = parseExcelDate(row[0]);
+        if (!d || d.getTime() > endTs) continue;
+        const we = weekEndingFriday(d);
+        if (!we) continue;
+        map.set(we.getTime(), row); // keep latest row in week before endDate
+      }
+
+      const weekKeys = [...map.keys()].sort((a,b) => a - b);
+      const weeklyDates = weekKeys.map(ts => new Date(Number(ts)));
+      const assetNames = headers.slice(1).map(v => String(v || '').trim() || 'Asset');
+      const weeklyPx2D = assetNames.map((_, assetIdx) => {
+        return weekKeys.map(ts => toNumber(map.get(ts)[assetIdx + 1]));
+      });
+
+      return { weeklyDates, weeklyPx2D, assetNames };
+    }
+
+    function computeMatrix() {
+      if (!state.rawRows.length || state.headers.length < 3) {
+        setStatus('Нет данных для расчёта. Сначала загрузите Excel файл.', 'err');
+        return;
+      }
+
+      const boxPct = Number($('boxPct').value || 0.0325);
+      const reversal = Number($('reversal').value || 3);
+      const weeksLookback = Number($('weeksLookback').value || 520);
+      const asOf = $('asOfDate').value || null;
+
+      const { weeklyDates, weeklyPx2D, assetNames } = buildWeeklyCloses(state.rawRows, state.headers, asOf);
+      if (weeklyDates.length < 20) {
+        setStatus('Недостаточно weekly точек для расчёта. Нужны данные хотя бы за 20 недель.', 'err');
+        return;
+      }
+
+      const n = assetNames.length;
+      let w1 = 0;
+      let w2 = weeklyDates.length - 1;
+      if (weeksLookback > 0 && weeklyDates.length > weeksLookback) {
+        w1 = weeklyDates.length - weeksLookback;
+        if ((w2 - w1) < 12) w1 = 0;
+      }
+
+      const codes = Array.from({ length: n }, () => Array.from({ length: n }, () => '--'));
+      for (let i = 0; i < n; i++) codes[i][i] = '—';
+
+      for (let i = 0; i < n - 1; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const c = rsPnfCode(weeklyPx2D, w1, w2, i, j, boxPct, reversal);
+          codes[i][j] = c;
+          codes[j][i] = invertCode(c);
+        }
+      }
+      normalizePairConsistency(codes);
+
+      const buys = new Array(n).fill(0);
+      const xs = new Array(n).fill(0);
+      const pts = new Array(n).fill(0);
+      const tech = new Array(n).fill(0);
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          if (i === j) continue;
+          const cc = String(codes[i][j] || '').toUpperCase().trim();
+          if (cc.length >= 2) {
+            if (cc.startsWith('B')) buys[i] += 1;
+            if (cc.endsWith('X')) xs[i] += 1;
+            pts[i] += codePoints(cc);
+          }
+        }
+      }
+
+      const denom = Math.max(1, 2 * (n - 1));
+      for (let i = 0; i < n; i++) tech[i] = Math.max(0, Math.min(5, 5 * ((pts[i] + (n - 1)) / denom)));
+
+      const ord = Array.from({ length: n }, (_, i) => i);
+      ord.sort((a, b) => {
+        if (pts[a] !== pts[b]) return pts[a] - pts[b];
+        if (buys[a] !== buys[b]) return buys[a] - buys[b];
+        return xs[a] - xs[b];
+      });
+
+      const rows = ord.map((a, idx) => {
+        const parsed = parseTickerName(assetNames[a]);
+        return {
+          rank: idx + 1,
+          ticker: parsed.ticker,
+          name: parsed.name,
+          buys: buys[a],
+          xs: xs[a],
+          total: n - 1,
+          tech: Number(tech[a].toFixed(2)),
+          matrix: ord.map(b => codes[a][b]),
+          assetIndex: a,
+          points: pts[a]
+        };
+      });
+
+      state.weeklyDates = weeklyDates;
+      state.weeklyPx2D = weeklyPx2D;
+      state.sortedNames = ord.map(i => assetNames[i]);
+      state.sortedCodes = rows.map(r => r.matrix);
+      state.resultRows = rows;
+
+      renderMatrix(rows, state.sortedNames, weeklyDates[w2], { boxPct, reversal, weeksUsed: w2 - w1 + 1 });
+      buildCsv(rows, state.sortedNames);
+
+      $('statAssets').textContent = String(n);
+      $('statWeeks').textContent = String(weeklyDates.length);
+      $('statDate').textContent = formatDate(weeklyDates[w2]);
+      $('statStrong').textContent = rows.length ? rows[rows.length - 1].ticker : '—';
+      $('tickersArea').value = assetNames.map(v => parseTickerName(v).ticker || v).join(', ');
+      setStatus(`Готово. Активов: ${n}, weekly точек: ${weeklyDates.length}, дата weekly close: ${formatDate(weeklyDates[w2])}`, 'ok');
+    }
+
+    function formatDate(d) {
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '—';
+      return d.toISOString().slice(0, 10);
+    }
+
+    function renderMatrix(rows, headerNames, asOfDate, meta) {
+      const table = $('matrixTable');
+      const thead = document.createElement('thead');
+      const tbody = document.createElement('tbody');
+
+      const hr = document.createElement('tr');
+      const baseHeaders = [
+        ['RANK','col-rank sticky-left'],
+        ['TICKER','col-ticker sticky-left-2'],
+        ['NAME','col-name sticky-left-3'],
+        ['BUYS','col-mini sticky-left-4'],
+        ["X'S",'col-mini sticky-left-5'],
+        ['TOTAL','col-mini sticky-left-6'],
+        ['TECH','col-tech sticky-left-7']
+      ];
+      baseHeaders.forEach(([text, cls]) => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        th.className = cls;
+        hr.appendChild(th);
+      });
+      headerNames.forEach(name => {
+        const th = document.createElement('th');
+        th.className = 'col-matrix';
+        th.textContent = parseTickerName(name).ticker || name;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        const cells = [
+          [row.rank, 'col-rank sticky-left'],
+          [row.ticker, 'col-ticker sticky-left-2'],
+          [row.name, 'col-name sticky-left-3'],
+          [row.buys, 'col-mini sticky-left-4'],
+          [row.xs, 'col-mini sticky-left-5'],
+          [row.total, 'col-mini sticky-left-6'],
+          [row.tech.toFixed(2), 'col-tech sticky-left-7']
+        ];
+        cells.forEach(([text, cls]) => {
+          const td = document.createElement('td');
+          td.className = cls;
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+
+        row.matrix.forEach((code) => {
+          const td = document.createElement('td');
+          const cc = String(code || '').toLowerCase();
+          td.className = 'col-matrix';
+          if (cc === '—') td.classList.add('diag');
+          else if (['bx','bo','so','sx'].includes(cc)) td.classList.add(cc);
+          td.textContent = code;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.innerHTML = '';
+      table.appendChild(thead);
+      table.appendChild(tbody);
+    }
+
+    function buildCsv(rows, sortedNames) {
+      const lines = [];
+      lines.push(['RANK','TICKER','NAME','BUYS',"X'S",'TOTAL','TECH', ...sortedNames.map(v => parseTickerName(v).ticker || v)].join(','));
+      rows.forEach(r => {
+        const safeName = `"${String(r.name).replaceAll('"', '""')}"`;
+        lines.push([r.rank, r.ticker, safeName, r.buys, r.xs, r.total, r.tech.toFixed(2), ...r.matrix].join(','));
+      });
+      state.matrixCsv = lines.join('\n');
+    }
+
+    function downloadText(filename, content, mime = 'text/plain;charset=utf-8') {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadWorkbook(workbook) {
+      state.workbook = workbook;
+      const userSheet = $('sheetName').value.trim();
+      let sheetName = userSheet;
+      if (!sheetName || !workbook.Sheets[sheetName]) {
+        if (workbook.Sheets['Ark1']) sheetName = 'Ark1';
+        else if (workbook.Sheets['Данные']) sheetName = 'Данные';
+        else sheetName = workbook.SheetNames[0];
+      }
+      state.activeSheetName = sheetName;
+
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (!rows.length || rows[0].length < 3) {
+        setStatus(`Лист ${sheetName} не подходит. Нужна колонка A=DateTime и минимум 2 актива.`, 'err');
+        return;
+      }
+
+      const headers = rows[0].map(v => String(v || '').trim());
+      const rawRows = rows.slice(1).filter(r => r && r.length > 1 && r.some(v => String(v).trim() !== ''));
+      state.headers = headers;
+      state.rawRows = rawRows;
+      $('tickersArea').value = headers.slice(1).map(v => parseTickerName(v).ticker || v).join(', ');
+      setStatus(`Файл загружен. Лист: ${sheetName}. Найдено активов: ${headers.length - 1}. Строк данных: ${rawRows.length}.`, 'ok');
+    }
+
+    $('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) {
+        setStatus('Файл не выбран.', 'warn');
+        return;
+      }
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        loadWorkbook(workbook);
+      } catch (err) {
+        console.error(err);
+        setStatus('Ошибка чтения файла. Проверьте формат Excel.', 'err');
+      }
+    });
+
+    $('runBtn').addEventListener('click', computeMatrix);
+
+    $('csvBtn').addEventListener('click', () => {
+      if (!state.matrixCsv) {
+        setStatus('Сначала постройте матрицу, потом можно скачать CSV.', 'warn');
+        return;
+      }
+      downloadText('rs_matrix_output.csv', state.matrixCsv, 'text/csv;charset=utf-8');
+    });
+
+    $('templateBtn').addEventListener('click', () => {
+      const csv = [
+        'DateTime,SPY,QQQ,EEM,XLE',
+        '2025-01-03,588.22,521.93,41.05,87.41',
+        '2025-01-10,583.16,518.71,40.88,88.02',
+        '2025-01-17,595.84,533.44,42.17,89.15',
+        '2025-01-24,601.25,540.63,42.85,90.47'
+      ].join('\n');
+      downloadText('rs_matrix_template.csv', csv, 'text/csv;charset=utf-8');
+    });
+
+    $('demoBtn').addEventListener('click', async () => {
+      try {
+        const resp = await fetch('./sample-data.xlsx');
+        const buf = await resp.arrayBuffer();
+        const workbook = XLSX.read(buf, { type: 'array' });
+        loadWorkbook(workbook);
+        computeMatrix();
+      } catch (e) {
+        console.error(e);
+        setStatus('Не удалось загрузить demo файл sample-data.xlsx.', 'err');
+      }
+    });
+
+    $('asOfDate').value = new Date().toISOString().slice(0, 10);
+  </script>
+</body>
 </html>
